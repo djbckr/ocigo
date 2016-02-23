@@ -12,9 +12,13 @@ import (
 	"unsafe"
 )
 
-/* An OCI representation of an Oracle Number type. This supports all of the
+/*
+   An OCI representation of an Oracle Number type. This supports all of the
    features of Oracle numbers, as they can easily exceed the limitations
-   of most float/int operations. */
+   of most float/int operations.
+   Since most operations can return errors, I just create a struct that
+   also has an error handle.
+*/
 type Number struct {
 	err    *C.OCIError
 	number C.OCINumber
@@ -33,8 +37,6 @@ func makeNumberInstance() (rslt *Number) {
 
 // Convert from a native integer type to Oracle Number
 func NumberFromInt(val interface{}) (*Number, error) {
-
-	rslt := makeNumberInstance()
 
 	var valtyp C.uword
 	var val_u uint64
@@ -97,6 +99,8 @@ func NumberFromInt(val interface{}) (*Number, error) {
 		return nil, errors.New("Invalid integer type for conversion")
 	}
 
+	rslt := makeNumberInstance()
+
 	vErr := checkError(
 		C.OCINumberFromInt(
 			rslt.err,
@@ -112,8 +116,6 @@ func NumberFromInt(val interface{}) (*Number, error) {
 // Convert from a native float type to Oracle Number
 func NumberFromFloat(val interface{}) (*Number, error) {
 
-	rslt := makeNumberInstance()
-
 	var v64 float64
 
 	switch val.(type) {
@@ -124,6 +126,8 @@ func NumberFromFloat(val interface{}) (*Number, error) {
 	default:
 		return nil, errors.New("Invalid float type for conversion")
 	}
+
+	rslt := makeNumberInstance()
 
 	vErr := checkError(
 		C.OCINumberFromReal(
@@ -142,8 +146,6 @@ func NumberFromFloat(val interface{}) (*Number, error) {
 // nls is the NLS parameter settings string. You can pass an empty string here to use the default settings.
 func NumberFromStringFmt(val string, fmt string, nls string) (*Number, error) {
 
-	rslt := makeNumberInstance()
-
 	str := []byte(val)
 
 	var format []byte = []byte(fmt)
@@ -159,6 +161,8 @@ func NumberFromStringFmt(val string, fmt string, nls string) (*Number, error) {
 	if nlsparlen > 0 {
 		nlsparamsp = (*C.oratext)(unsafe.Pointer(&nlsparams[0]))
 	}
+
+	rslt := makeNumberInstance()
 
 	vErr := checkError(
 		C.OCINumberFromText(
@@ -176,6 +180,8 @@ func NumberFromStringFmt(val string, fmt string, nls string) (*Number, error) {
 }
 
 // Convert a basic numerical string to an Oracle Number
+// OCI requires a format string that essentially matches
+// the input string, hence the hoops...
 func NumberFromString(val string) (*Number, error) {
 	lvl := []byte(val)
 	fmt := make([]byte, len(lvl))

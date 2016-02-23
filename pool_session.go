@@ -114,6 +114,7 @@ func (pool *Pool) GetSession() (*Session, error) {
 		}
 	}
 
+	// now actually get the session handle (I know, right?)
 	err = ociAttrGet(
 		(unsafe.Pointer)(rslt.svc),
 		htypeSvcCtx,
@@ -155,6 +156,7 @@ const (
 )
 
 func (sess *Session) StartTransaction(txType TxnType) error {
+
 	err := checkError(
 		C.OCITransStart(
 			sess.svc,
@@ -163,6 +165,7 @@ func (sess *Session) StartTransaction(txType TxnType) error {
 			(C.ub4)(txType)), sess.err)
 
 	return processError(err)
+
 }
 
 func (sess *Session) FreeSession() error {
@@ -207,6 +210,8 @@ func (sess *Session) SetLobPrefetchSize(value string) {
 	//OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE
 
 }
+
+// package initialization - there is only one environment for whoever uses this library.
 
 func init() {
 

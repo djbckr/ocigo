@@ -141,12 +141,3 @@ func querySql(ses *oci.Session, t *testing.T, sql string) {
 	_, err = stmt.Query()
 	checkerr(t, err)
 }
-
-$ instead of $
-
-
-
-668.97 - 45.83
-
-623.14
-

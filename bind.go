@@ -2,9 +2,6 @@ package oci
 
 /*
 #cgo pkg-config: oci
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <oci.h>
 */
 import "C"

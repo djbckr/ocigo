@@ -14,6 +14,14 @@ import (
 	"unsafe"
 )
 
+/*
+   Support for Oracle Timestamp (with Time Zone/Local Time Zone)
+   Support for Oracle Interval (Year to Month/Day to Second)
+
+   The OCI structures are more complicated and require
+   allocating/deallocating descriptors when used.
+*/
+
 type TimestampType C.ub4
 
 // timestamp types

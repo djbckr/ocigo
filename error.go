@@ -6,10 +6,20 @@ package oci
 */
 import "C"
 
+/*
+   The OCI error management is a bit of a headache. It's somewhat rare to get warnings,
+   but they happen - such as password expiration warnings on login, or PL/SQL compilation
+   errors. These generally don't require special handling, but should be checked by
+   the client.
+
+   The programs using this library should not see the OciError struct, but should instead
+   see error objects. This is used for this library processing purposes.
+   -- perhaps OciError should be ociError? --
+*/
+
 import (
 	"errors"
 	"fmt"
-	//"runtime"
 	"strings"
 	"unsafe"
 )
@@ -52,6 +62,7 @@ func processError(err *OciError) error {
 	return nil
 }
 
+// this function is called on nearly every OCI call
 func checkError(errval C.sword, errhndl *C.OCIError) (result *OciError) {
 	if errval == C.OCI_SUCCESS {
 		result = nil
@@ -76,9 +87,11 @@ func checkError(errval C.sword, errhndl *C.OCIError) (result *OciError) {
 	return
 }
 
+// low-level call into OCI; Oracle allows multiple errors
+// to be reported in one error handle, hence the loop
 func ociGetError(errh *C.OCIError) (string, int32) {
 
-	BUFSIZE := 1024
+	BUFSIZE := 1024 // 1kb ought to be enough for anybody
 
 	rslts := make([]string, 0, 10)
 	buffer := make([]byte, BUFSIZE)

@@ -6,6 +6,11 @@ package oci
 */
 import "C"
 
+/*
+   This primarily pulls over the OCI definitions into a Go type,
+   plus some basic functions used all over the OCI.
+*/
+
 import (
 	"bytes"
 	"fmt"
