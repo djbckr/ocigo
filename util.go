@@ -109,14 +109,17 @@ const (
 	htypeEvent             ociHandleType = C.OCI_HTYPE_EVENT                /* HA event handle */
 )
 
-// handle is a **
-func ociHandleAlloc(parent unsafe.Pointer, handle *unsafe.Pointer, htype ociHandleType) {
+func ociHandleAlloc(parent unsafe.Pointer, htype ociHandleType) unsafe.Pointer {
 
-	errcode := C.OCIHandleAlloc(parent, handle, (C.ub4)(htype), 0, nil)
+	var hdl unsafe.Pointer
+
+	errcode := C.OCIHandleAlloc(parent, &hdl, (C.ub4)(htype), 0, nil)
 
 	if errcode != 0 {
 		panic(fmt.Errorf("OCIHandleAlloc(HTYPE_ERROR) failed with errcode = %d.\n", errcode))
 	}
+
+	return hdl
 
 }
 
@@ -160,15 +163,17 @@ const (
 	dtypeLOBRegion          ociDescriptorType = C.OCI_DTYPE_LOB_REGION           /* LOB Share region descriptor */
 )
 
-// descriptor is a **
-func ociDescriptorAlloc(parent unsafe.Pointer, descriptor *unsafe.Pointer, dtype ociDescriptorType) {
+func ociDescriptorAlloc(parent unsafe.Pointer, dtype ociDescriptorType) unsafe.Pointer {
 
-	errcode := C.OCIDescriptorAlloc(parent, descriptor, (C.ub4)(dtype), 0, nil)
+	var descriptor unsafe.Pointer
+
+	errcode := C.OCIDescriptorAlloc(parent, &descriptor, (C.ub4)(dtype), 0, nil)
 
 	if errcode != C.OCI_SUCCESS {
 		panic("Unable to allocate descriptor")
 	}
 
+	return descriptor
 }
 
 func ociDescriptorFree(descriptor unsafe.Pointer, dtype ociDescriptorType) {
@@ -561,10 +566,61 @@ func ociAttrGetString(handle unsafe.Pointer, htype ociHandleType, attrType ociAt
 
 }
 
-func ociAttrGet(handle unsafe.Pointer, htype ociHandleType, attrPtr unsafe.Pointer, attrSize *C.ub4, attrType ociAttrType, errHandle *C.OCIError) *OciError {
-	return checkError(C.OCIAttrGet(handle, (C.ub4)(htype), attrPtr, attrSize, (C.ub4)(attrType), errHandle), errHandle)
+func ociAttrGetPointer(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (unsafe.Pointer, *OciError) {
+	var v unsafe.Pointer
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetSB1(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (int8, *OciError) {
+	var v int8
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetUB1(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (uint8, *OciError) {
+	var v uint8
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetSB2(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (int16, *OciError) {
+	var v int16
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetUB2(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (uint16, *OciError) {
+	var v uint16
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetSB4(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (int32, *OciError) {
+	var v int32
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetUB4(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (uint32, *OciError) {
+	var v uint32
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetSB8(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (int64, *OciError) {
+	var v int64
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
+}
+
+func ociAttrGetUB8(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (uint64, *OciError) {
+	var v uint64
+	err := C.OCIAttrGet(handle, (C.ub4)(htype), (unsafe.Pointer)(&v), nil, (C.ub4)(attrType), errHandle)
+	return v, checkError(err, errHandle)
 }
 
 func ociAttrSet(handle unsafe.Pointer, htype ociHandleType, attrPtr unsafe.Pointer, attrSize C.ub4, attrType ociAttrType, errHandle *C.OCIError) *OciError {
+	fmt.Println("ociAttrSet: ", htype, attrType)
 	return checkError(C.OCIAttrSet(handle, (C.ub4)(htype), attrPtr, attrSize, (C.ub4)(attrType), errHandle), errHandle)
 }

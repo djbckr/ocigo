@@ -72,16 +72,16 @@ func finalizerInterval(iv *Interval) {
 
 func makeTimestampInstance(s *Session, typ TimestampType) (rslt *TimeStamp) {
 	rslt = &TimeStamp{ses: s, tstype: typ}
-	ociDescriptorAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.datetime)), (ociDescriptorType)(typ))
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
+	rslt.datetime = (*C.OCIDateTime)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 	runtime.SetFinalizer(rslt, finalizerTimestamp)
 	return
 }
 
 func makeIntervalInstance(s *Session, typ IntervalType) (rslt *Interval) {
 	rslt = &Interval{ses: s, intype: typ}
-	ociDescriptorAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.interval)), (ociDescriptorType)(typ))
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
+	rslt.interval = (*C.OCIInterval)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 	runtime.SetFinalizer(rslt, finalizerInterval)
 	return
 }

@@ -12,13 +12,7 @@ import (
 	"unsafe"
 )
 
-/*
-   An OCI representation of an Oracle Number type. This supports all of the
-   features of Oracle numbers, as they can easily exceed the limitations
-   of most float/int operations.
-   Since most operations can return errors, I just create a struct that
-   also has an error handle.
-*/
+// Number is an opaque representation of an Oracle Number type. This supports all of the features of Oracle numbers, as they can easily exceed the limitations of most float/int operations.
 type Number struct {
 	err    *C.OCIError
 	number C.OCINumber
@@ -30,71 +24,71 @@ func finalizeNumber(n *Number) {
 
 func makeNumberInstance() (rslt *Number) {
 	rslt = &Number{}
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 	runtime.SetFinalizer(rslt, finalizeNumber)
 	return
 }
 
-// Convert from a native integer type to Oracle Number
+// NumberFromInt Convert from a native integer type to Oracle Number
 func NumberFromInt(val interface{}) (*Number, error) {
 
 	var valtyp C.uword
-	var val_u uint64
-	var val_s int64
+	var valU uint64
+	var valS int64
 	var valptr unsafe.Pointer
 	var valsz C.uword
 
 	switch val.(type) {
 	case uint8:
 		valtyp = C.OCI_NUMBER_UNSIGNED
-		val_u = uint64(val.(uint8))
-		valptr = (unsafe.Pointer)(&val_u)
-		valsz = (C.uword)(unsafe.Sizeof(val_u))
+		valU = uint64(val.(uint8))
+		valptr = (unsafe.Pointer)(&valU)
+		valsz = (C.uword)(unsafe.Sizeof(valU))
 	case uint16:
 		valtyp = C.OCI_NUMBER_UNSIGNED
-		val_u = uint64(val.(uint16))
-		valptr = (unsafe.Pointer)(&val_u)
-		valsz = (C.uword)(unsafe.Sizeof(val_u))
+		valU = uint64(val.(uint16))
+		valptr = (unsafe.Pointer)(&valU)
+		valsz = (C.uword)(unsafe.Sizeof(valU))
 	case uint32:
 		valtyp = C.OCI_NUMBER_UNSIGNED
-		val_u = uint64(val.(uint32))
-		valptr = (unsafe.Pointer)(&val_u)
-		valsz = (C.uword)(unsafe.Sizeof(val_u))
+		valU = uint64(val.(uint32))
+		valptr = (unsafe.Pointer)(&valU)
+		valsz = (C.uword)(unsafe.Sizeof(valU))
 	case uint64:
 		valtyp = C.OCI_NUMBER_UNSIGNED
-		val_u = val.(uint64)
-		valptr = (unsafe.Pointer)(&val_u)
-		valsz = (C.uword)(unsafe.Sizeof(val_u))
+		valU = val.(uint64)
+		valptr = (unsafe.Pointer)(&valU)
+		valsz = (C.uword)(unsafe.Sizeof(valU))
 	case uint:
 		valtyp = C.OCI_NUMBER_UNSIGNED
-		val_u = uint64(val.(uint))
-		valptr = (unsafe.Pointer)(&val_u)
-		valsz = (C.uword)(unsafe.Sizeof(val_u))
+		valU = uint64(val.(uint))
+		valptr = (unsafe.Pointer)(&valU)
+		valsz = (C.uword)(unsafe.Sizeof(valU))
 	case int8:
 		valtyp = C.OCI_NUMBER_SIGNED
-		val_s = int64(val.(int8))
-		valptr = (unsafe.Pointer)(&val_s)
-		valsz = (C.uword)(unsafe.Sizeof(val_s))
+		valS = int64(val.(int8))
+		valptr = (unsafe.Pointer)(&valS)
+		valsz = (C.uword)(unsafe.Sizeof(valS))
 	case int16:
 		valtyp = C.OCI_NUMBER_SIGNED
-		val_s = int64(val.(int16))
-		valptr = (unsafe.Pointer)(&val_s)
-		valsz = (C.uword)(unsafe.Sizeof(val_s))
+		valS = int64(val.(int16))
+		valptr = (unsafe.Pointer)(&valS)
+		valsz = (C.uword)(unsafe.Sizeof(valS))
 	case int32:
 		valtyp = C.OCI_NUMBER_SIGNED
-		val_s = int64(val.(int32))
-		valptr = (unsafe.Pointer)(&val_s)
-		valsz = (C.uword)(unsafe.Sizeof(val_s))
+		valS = int64(val.(int32))
+		valptr = (unsafe.Pointer)(&valS)
+		valsz = (C.uword)(unsafe.Sizeof(valS))
 	case int64:
 		valtyp = C.OCI_NUMBER_SIGNED
-		val_s = val.(int64)
-		valptr = (unsafe.Pointer)(&val_s)
-		valsz = (C.uword)(unsafe.Sizeof(val_s))
+		valS = val.(int64)
+		valptr = (unsafe.Pointer)(&valS)
+		valsz = (C.uword)(unsafe.Sizeof(valS))
 	case int:
 		valtyp = C.OCI_NUMBER_SIGNED
-		val_s = int64(val.(int))
-		valptr = (unsafe.Pointer)(&val_s)
-		valsz = (C.uword)(unsafe.Sizeof(val_s))
+		valS = int64(val.(int))
+		valptr = (unsafe.Pointer)(&valS)
+		valsz = (C.uword)(unsafe.Sizeof(valS))
 	default:
 		return nil, errors.New("Invalid integer type for conversion")
 	}
@@ -113,7 +107,7 @@ func NumberFromInt(val interface{}) (*Number, error) {
 
 }
 
-// Convert from a native float type to Oracle Number
+// NumberFromFloat converts from a native float type to Oracle Number
 func NumberFromFloat(val interface{}) (*Number, error) {
 
 	var v64 float64
@@ -140,7 +134,7 @@ func NumberFromFloat(val interface{}) (*Number, error) {
 
 }
 
-// Convert a string to an Oracle Number using formatting/nls.
+// NumberFromStringFmt converts a string to an Oracle Number using formatting/nls.
 // val is the string to convert
 // fmt is the format string. OCI is a bit brain-dead about this. You *must* provide a valid format string here.
 // nls is the NLS parameter settings string. You can pass an empty string here to use the default settings.
@@ -179,9 +173,7 @@ func NumberFromStringFmt(val string, fmt string, nls string) (*Number, error) {
 
 }
 
-// Convert a basic numerical string to an Oracle Number
-// OCI requires a format string that essentially matches
-// the input string, hence the hoops...
+// NumberFromString converts a basic numerical string to an Oracle Number
 func NumberFromString(val string) (*Number, error) {
 	lvl := []byte(val)
 	fmt := make([]byte, len(lvl))
@@ -200,7 +192,7 @@ func NumberFromString(val string) (*Number, error) {
 	return NumberFromStringFmt(val, string(fmt), "")
 }
 
-// convert an Oracle Number to native integer
+// ToInt converts an Oracle Number to native integer
 func (num *Number) ToInt() (int64, error) {
 
 	var rslt int64
@@ -217,7 +209,7 @@ func (num *Number) ToInt() (int64, error) {
 
 }
 
-// convert an Oracle Number to native float
+// ToFloat converts an Oracle Number to native float
 func (num *Number) ToFloat() (float64, error) {
 
 	var rslt float64
@@ -233,7 +225,7 @@ func (num *Number) ToFloat() (float64, error) {
 
 }
 
-// convert an Oracle Number to string
+// ToString converts an Oracle Number to string
 // The fmt and nls parameters may be empty if desired.
 // Otherwise provide a format string and/or an NLS parameter string
 func (num *Number) ToString(fmt, nls string) (string, error) {
@@ -284,6 +276,7 @@ func (num *Number) String() string {
 	return rslt
 }
 
+// Abs returns the absolute value of this Number. The returned number is a new instance.
 func (num *Number) Abs() (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -297,6 +290,7 @@ func (num *Number) Abs() (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Add adds the supplied Number to this Number and returns a new instance.
 func (num *Number) Add(number *Number) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -311,6 +305,7 @@ func (num *Number) Add(number *Number) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Cmp compares the supplied Number to this Number and returns an int.
 func (num *Number) Cmp(number *Number) (int, error) {
 
 	var rslt C.sword
@@ -325,6 +320,7 @@ func (num *Number) Cmp(number *Number) (int, error) {
 	return (int)(rslt), processError(vErr)
 }
 
+// Div divides this Number with the supplied Number and returns a new instance.
 func (num *Number) Div(number *Number) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -339,6 +335,7 @@ func (num *Number) Div(number *Number) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Mod returns the remainder of a div in a new instance.
 func (num *Number) Mod(number *Number) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -353,6 +350,7 @@ func (num *Number) Mod(number *Number) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Mul returns the product of this Number with the supplied Number in a new instance.
 func (num *Number) Mul(number *Number) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -367,6 +365,7 @@ func (num *Number) Mul(number *Number) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Round returns a new instance with the number of decimal places.
 func (num *Number) Round(decplaces int) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -381,6 +380,7 @@ func (num *Number) Round(decplaces int) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Sub returns a new instance of the supplied Number subtracted from this number.
 func (num *Number) Sub(number *Number) (*Number, error) {
 
 	rslt := makeNumberInstance()
@@ -395,6 +395,7 @@ func (num *Number) Sub(number *Number) (*Number, error) {
 	return rslt, processError(vErr)
 }
 
+// Trunc truncates a new instance to the number of decimal places.
 func (num *Number) Trunc(decplaces int) (*Number, error) {
 
 	rslt := makeNumberInstance()

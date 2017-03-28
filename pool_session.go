@@ -57,8 +57,8 @@ func CreatePool(connectString string, minSessions, maxSessions, incrStep int) (*
 		password: []byte(lst[2]),
 		database: []byte(lst[3])}
 
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.pool)), htypeSessionPool)
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
+	rslt.pool = (*C.OCISPool)(ociHandleAlloc((unsafe.Pointer)(genv), htypeSessionPool))
 
 	// set pool inactive timeout for 90 seconds
 	var timeout C.ub4 = 90
@@ -142,7 +142,7 @@ type Session struct {
 func (pool *Pool) Acquire() (*Session, error) {
 
 	rslt := &Session{}
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 
 	// get the session (which actually returns the service handle, not the session... )
 	err := checkError(
@@ -160,13 +160,13 @@ func (pool *Pool) Acquire() (*Session, error) {
 	}
 
 	// now actually get the session handle (I know, right?)
-	err = ociAttrGet(
+	ses, err := ociAttrGetPointer(
 		(unsafe.Pointer)(rslt.svc),
 		htypeSvcCtx,
-		(unsafe.Pointer)(&rslt.ses),
-		nil,
 		attrSession,
 		rslt.err)
+
+	rslt.ses = (*C.OCISession)(ses)
 
 	return rslt, processError(err)
 
@@ -326,6 +326,6 @@ func init() {
 		panic(fmt.Errorf("OCIEnvCreate failed with errcode = %d.\n", errcode))
 	}
 
-	ociHandleAlloc((unsafe.Pointer)(genv), (*unsafe.Pointer)(unsafe.Pointer(&gerr)), htypeError)
+	gerr = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 
 }

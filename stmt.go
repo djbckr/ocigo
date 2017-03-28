@@ -53,7 +53,7 @@ func (sess *Session) Prepare(sql string) (*Statement, error) {
 	hash := sha256.Sum256(rslt.qry)
 	rslt.key = []byte(hex.EncodeToString(hash[:]))
 
-	ociHandleAlloc(unsafe.Pointer(genv), (*unsafe.Pointer)(unsafe.Pointer(&rslt.err)), htypeError)
+	rslt.err = (*C.OCIError)(ociHandleAlloc(unsafe.Pointer(genv), htypeError))
 
 	vErr := checkError(
 		C.OCIStmtPrepare2(
@@ -67,7 +67,8 @@ func (sess *Session) Prepare(sql string) (*Statement, error) {
 			C.OCI_PREP2_CACHE_SEARCHONLY), rslt.err)
 
 	if vErr == nil {
-		vErr = ociAttrGet(unsafe.Pointer(rslt.stm), htypeStatement, unsafe.Pointer(&rslt.stmtype), nil, attrStmtType, rslt.err)
+		stype, vErr := ociAttrGetUB2(unsafe.Pointer(rslt.stm), htypeStatement, attrStmtType, rslt.err)
+		rslt.stmtype = StmtType(stype)
 		return rslt, vErr
 	}
 
@@ -86,17 +87,19 @@ func (sess *Session) Prepare(sql string) (*Statement, error) {
 				C.OCI_DEFAULT), rslt.err)
 
 		if vErr == nil {
-			vErr = ociAttrGet(unsafe.Pointer(rslt.stm), htypeStatement, unsafe.Pointer(&rslt.stmtype), nil, attrStmtType, rslt.err)
-			return rslt, processError(vErr)
-		} else {
-			return nil, processError(vErr)
-		}
+			stype, vErr := ociAttrGetUB2(
+				unsafe.Pointer(rslt.stm),
+				htypeStatement,
+				attrStmtType,
+				rslt.err)
 
-	} else {
-		// this is some general error, so we need to return it
+			rslt.stmtype = StmtType(stype)
+
+			return rslt, processError(vErr)
+		}
 		return nil, processError(vErr)
 	}
-
+	return nil, processError(vErr)
 }
 
 func (stmt *Statement) exec(iterations uint32, commit bool) *OciError {

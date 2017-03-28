@@ -25,8 +25,8 @@ const (
 type Column struct {
 	datatype      ociSqlType
 	name          string
-	sizeBytes     int16
-	sizeChars     int16
+	sizeBytes     uint16
+	sizeChars     uint16
 	charSemantics tCharSemantics
 	precision     int16
 	scale         int8
@@ -53,7 +53,7 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 
 	var parmcnt uint32
 
-	err = ociAttrGet(unsafe.Pointer(stmt.stm), htypeStatement, unsafe.Pointer(&parmcnt), nil, attrParamCount, stmt.err)
+	parmcnt, err = ociAttrGetUB4(unsafe.Pointer(stmt.stm), htypeStatement, attrParamCount, stmt.err)
 
 	if err != nil {
 		return nil, processError(err)
@@ -67,7 +67,7 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 	// 8==1, 16==2, 32==4, 64==8
 
 	var colIndx uint32 = 1
-	var arrIndx uint32 = 0
+	var arrIndx uint32
 
 	for colIndx <= parmcnt {
 
@@ -108,15 +108,16 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	rslt = &Column{}
 
 	// data type (C.ub2)
-	err = ociAttrGet(
+	var ub2 uint16
+	ub2, err = ociAttrGetUB2(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&rslt.datatype),
-		nil, attrDataType, errhndl)
+		attrDataType, errhndl)
 
 	if err != nil {
 		return
 	}
+	rslt.datatype = ociSqlType(ub2)
 
 	// name (C.OraText *)
 	rslt.name, err = ociAttrGetString(
@@ -130,35 +131,36 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	}
 
 	// data size (C.ub2) // num bytes needed
-	err = ociAttrGet(
+	ub2, err = ociAttrGetUB2(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&rslt.sizeBytes),
-		nil, attrDataSize, errhndl)
+		attrDataSize, errhndl)
 
 	if err != nil {
 		return
 	}
+
+	rslt.sizeBytes = ub2
 
 	// char_size (C.ub2) // num chars allowed
-	err = ociAttrGet(
+	ub2, err = ociAttrGetUB2(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&rslt.sizeChars),
-		nil, attrCharSize, errhndl)
+		attrCharSize, errhndl)
 
 	if err != nil {
 		return
 	}
 
-	// char_used (C.ub1) (1==char-semantics, 0==byte-semantics)
-	var bb C.ub1
+	rslt.sizeChars = ub2
 
-	err = ociAttrGet(
+	// char_used (C.ub1) (1==char-semantics, 0==byte-semantics)
+	var bb uint8
+
+	bb, err = ociAttrGetUB1(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&bb),
-		nil, attrCharUsed, errhndl)
+		attrCharUsed, errhndl)
 
 	if err != nil {
 		return
@@ -171,35 +173,41 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	}
 
 	// precision (C.sb2) // The precision of numeric columns. If the precision is nonzero and scale is -127, then it is a FLOAT; otherwise, it is a NUMBER(precision, scale). When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
-	err = ociAttrGet(
+	var sb2 int16
+
+	sb2, err = ociAttrGetSB2(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&rslt.precision),
-		nil, attrPrecision, errhndl)
+		attrPrecision, errhndl)
 
 	if err != nil {
 		return
 	}
+
+	rslt.precision = sb2
 
 	// scale (C.sb1)
-	err = ociAttrGet(
+
+	var sb1 int8
+
+	sb1, err = ociAttrGetSB1(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&rslt.scale),
-		nil, attrScale, errhndl)
+		attrScale, errhndl)
 
 	if err != nil {
 		return
 	}
 
-	// nullable (C.sb1) // if == 0, not nullable ; <> 0 nullable
-	var nn C.sb1
+	rslt.scale = sb1
 
-	err = ociAttrGet(
+	// nullable (C.sb1) // if == 0, not nullable ; <> 0 nullable
+	var nn int8
+
+	nn, err = ociAttrGetSB1(
 		(unsafe.Pointer)(paramp),
 		(ociHandleType)(dtypeParam),
-		(unsafe.Pointer)(&nn),
-		nil, attrIsNull, errhndl)
+		attrIsNull, errhndl)
 
 	if err != nil {
 		return
