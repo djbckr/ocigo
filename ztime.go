@@ -22,6 +22,23 @@ import (
    allocating/deallocating descriptors when used.
 */
 
+// TimeStamp is an opaque structure that represents an Oracle TIMESTAMP [WITH [LOCAL] TIMEZONE]
+type TimeStamp struct {
+	ses      *Session
+	err      *C.OCIError
+	datetime *C.OCIDateTime
+	tstype   TimestampType
+}
+
+// Interval is an opaque structure that represents an Oracle INTERVAL [YEAR TO MONTH]|[DAY TO SECOND]
+type Interval struct {
+	ses      *Session
+	err      *C.OCIError
+	interval *C.OCIInterval
+	intype   IntervalType
+}
+
+// TimestampType clarifies the actual TimeStamp struct.
 type TimestampType C.ub4
 
 // timestamp types
@@ -31,6 +48,7 @@ const (
 	TypeTimestampLTZ TimestampType = (TimestampType)(dtypeTimestampLTZ)
 )
 
+// IntervalType clarifies the actual Interval struct.
 type IntervalType C.ub4
 
 // interval types
@@ -38,20 +56,6 @@ const (
 	TypeIntervalYM IntervalType = (IntervalType)(dtypeIntervalYM)
 	TypeIntervalDS IntervalType = (IntervalType)(dtypeIntervalDS)
 )
-
-type TimeStamp struct {
-	ses      *Session
-	err      *C.OCIError
-	datetime *C.OCIDateTime
-	tstype   TimestampType
-}
-
-type Interval struct {
-	ses      *Session
-	err      *C.OCIError
-	interval *C.OCIInterval
-	intype   IntervalType
-}
 
 func finalizer(hndl unsafe.Pointer, errhndl unsafe.Pointer, typ C.ub4) {
 	ociHandleFree(errhndl, htypeError)
@@ -84,7 +88,7 @@ func makeIntervalInstance(s *Session, typ IntervalType) (rslt *Interval) {
 
 /*****************************************************************************/
 
-/* Get System Time Stamp based on Database Session settings */
+// SysTimeStamp gets System Time Stamp based on Database Session settings
 func (session *Session) SysTimeStamp(tstype TimestampType) (*TimeStamp, error) {
 
 	rslt := makeTimestampInstance(session, tstype)
@@ -101,31 +105,32 @@ func (session *Session) SysTimeStamp(tstype TimestampType) (*TimeStamp, error) {
 
 /*****************************************************************************/
 
+// TimeStampFromText takes one or more strings and converts to a TimeStamp struct.
 func (session *Session) TimeStampFromText(tstype TimestampType, params ...string) (*TimeStamp, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
 
-	date_str := []byte(params[0])
-	dstr_length := len(params[0])
+	dateStr := []byte(params[0])
+	dstrLength := len(params[0])
 
 	var fmt []byte
 	var fmtp unsafe.Pointer
-	var fmt_length C.ub1 = 0
-	var lang_name []byte
-	var lang_namep unsafe.Pointer
-	var lang_length C.size_t = 0
+	var fmtLength C.ub1
+	var langName []byte
+	var langNameP unsafe.Pointer
+	var langLength C.size_t
 
 	if len(params) > 1 && len(params[1]) > 0 {
 		fmt = []byte(params[1])
-		fmt_length = (C.ub1)(len(params[1]))
+		fmtLength = (C.ub1)(len(params[1]))
 		fmtp = (unsafe.Pointer)(&fmt[0])
 	}
 
 	if len(params) > 2 && len(params[2]) > 0 {
-		lang_name = []byte(params[2])
-		lang_length = (C.size_t)(len(params[2]))
-		lang_namep = (unsafe.Pointer)(&lang_name[0])
+		langName = []byte(params[2])
+		langLength = (C.size_t)(len(params[2]))
+		langNameP = (unsafe.Pointer)(&langName[0])
 	}
 
 	rslt := makeTimestampInstance(session, tstype)
@@ -134,12 +139,12 @@ func (session *Session) TimeStampFromText(tstype TimestampType, params ...string
 		C.OCIDateTimeFromText(
 			unsafe.Pointer(session.ses),
 			rslt.err,
-			(*C.OraText)(unsafe.Pointer(&date_str[0])),
-			(C.size_t)(dstr_length),
+			(*C.OraText)(unsafe.Pointer(&dateStr[0])),
+			(C.size_t)(dstrLength),
 			(*C.OraText)(fmtp),
-			fmt_length,
-			(*C.OraText)(lang_namep),
-			lang_length,
+			fmtLength,
+			(*C.OraText)(langNameP),
+			langLength,
 			rslt.datetime), rslt.err)
 
 	return rslt, processError(err)
@@ -148,15 +153,16 @@ func (session *Session) TimeStampFromText(tstype TimestampType, params ...string
 
 /*****************************************************************************/
 
+// TimeStampFromGoTime converts a go time to an Oracle TimeStamp
 func (session *Session) TimeStampFromGoTime(tstype TimestampType, t time.Time) (*TimeStamp, error) {
 
-	var year int16 = int16(t.Year())
-	var month uint8 = uint8(t.Month())
-	var day uint8 = uint8(t.Day())
-	var hour uint8 = uint8(t.Hour())
-	var min uint8 = uint8(t.Minute())
-	var sec uint8 = uint8(t.Second())
-	var fsec uint32 = uint32(t.Nanosecond() / 1000000)
+	var year = int16(t.Year())
+	var month = uint8(t.Month())
+	var day = uint8(t.Day())
+	var hour = uint8(t.Hour())
+	var min = uint8(t.Minute())
+	var sec = uint8(t.Second())
+	var fsec = uint32(t.Nanosecond() / 1000000)
 	_, offset := t.Zone()
 
 	// offset is number of seconds; convert to a string that Oracle can interpret
@@ -188,16 +194,17 @@ func (session *Session) TimeStampFromGoTime(tstype TimestampType, t time.Time) (
 
 }
 
-func (dt *TimeStamp) GetDate() (year int16, month, day uint8) {
+// GetDate extracts the year, month, and day values from a TimeStamp
+func (ts *TimeStamp) GetDate() (year int16, month, day uint8) {
 
 	err := checkError(
 		C.OCIDateTimeGetDate(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
 			(*C.sb2)(unsafe.Pointer(&year)),
 			(*C.ub1)(unsafe.Pointer(&month)),
-			(*C.ub1)(unsafe.Pointer(&day))), dt.err)
+			(*C.ub1)(unsafe.Pointer(&day))), ts.err)
 
 	if err != nil {
 		panic(err)
@@ -206,17 +213,18 @@ func (dt *TimeStamp) GetDate() (year int16, month, day uint8) {
 	return
 }
 
-func (dt *TimeStamp) GetTime() (hour, minute, second uint8, fracsecond uint32) {
+// GetTime extracts the hour, minute, second, and fracsecond values from a TimeStamp
+func (ts *TimeStamp) GetTime() (hour, minute, second uint8, fracsecond uint32) {
 
 	err := checkError(
 		C.OCIDateTimeGetTime(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
 			(*C.ub1)(unsafe.Pointer(&hour)),
 			(*C.ub1)(unsafe.Pointer(&minute)),
 			(*C.ub1)(unsafe.Pointer(&second)),
-			(*C.ub4)(unsafe.Pointer(&fracsecond))), dt.err)
+			(*C.ub4)(unsafe.Pointer(&fracsecond))), ts.err)
 
 	if err != nil {
 		panic(err)
@@ -225,18 +233,19 @@ func (dt *TimeStamp) GetTime() (hour, minute, second uint8, fracsecond uint32) {
 	return
 }
 
-func (dt *TimeStamp) GetTimeZoneName() string {
+// GetTimeZoneName returns the name of the timezone (if there is one) from this TimeStamp
+func (ts *TimeStamp) GetTimeZoneName() string {
 
 	tzname := make([]byte, 128)
 	var tznamelen uint32 = 128
 
 	err := checkError(
 		C.OCIDateTimeGetTimeZoneName(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
 			(*C.ub1)(unsafe.Pointer(&tzname[0])),
-			(*C.ub4)(unsafe.Pointer(&tznamelen))), dt.err)
+			(*C.ub4)(unsafe.Pointer(&tznamelen))), ts.err)
 
 	if err != nil {
 		panic(err)
@@ -245,15 +254,16 @@ func (dt *TimeStamp) GetTimeZoneName() string {
 	return string(tzname[:tznamelen])
 }
 
-func (dt *TimeStamp) GetTimeZoneOffset() (hourOffset, minuteOffset int8) {
+// GetTimeZoneOffset returns the hour/minute offset from this TimeStamp
+func (ts *TimeStamp) GetTimeZoneOffset() (hourOffset, minuteOffset int8) {
 
 	err := checkError(
 		C.OCIDateTimeGetTimeZoneOffset(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
 			(*C.sb1)(unsafe.Pointer(&hourOffset)),
-			(*C.sb1)(unsafe.Pointer(&minuteOffset))), dt.err)
+			(*C.sb1)(unsafe.Pointer(&minuteOffset))), ts.err)
 
 	if err != nil {
 		panic(err)
@@ -262,12 +272,13 @@ func (dt *TimeStamp) GetTimeZoneOffset() (hourOffset, minuteOffset int8) {
 	return
 }
 
-func (dt *TimeStamp) ToGoTime() time.Time {
+// ToGoTime converts an Oracle TimeStamp to a go time value
+func (ts *TimeStamp) ToGoTime() time.Time {
 
-	year, month, day := dt.GetDate()
-	hour, min, sec, fsec := dt.GetTime()
-	timezone := dt.GetTimeZoneName()
-	hroffs, mnoffs := dt.GetTimeZoneOffset()
+	year, month, day := ts.GetDate()
+	hour, min, sec, fsec := ts.GetTime()
+	timezone := ts.GetTimeZoneName()
+	hroffs, mnoffs := ts.GetTimeZoneOffset()
 
 	var loc *time.Location
 	var locerr error
@@ -281,8 +292,10 @@ func (dt *TimeStamp) ToGoTime() time.Time {
 
 }
 
+// DateInvalidFlags type to represent invalid date fields/flags.
 type DateInvalidFlags uint32
 
+// The possible flags that could be an error in a timestamp.
 const (
 	DateInvalidDay         DateInvalidFlags = C.OCI_DT_INVALID_DAY
 	DateDayBelowValid      DateInvalidFlags = C.OCI_DT_DAY_BELOW_VALID
@@ -302,45 +315,48 @@ const (
 	DateInvalidFormat      DateInvalidFlags = C.OCI_DT_INVALID_FORMAT
 )
 
-func (dt *TimeStamp) Check() (DateInvalidFlags, error) {
+// Check validates an Oracle TimeStamp for errors.
+func (ts *TimeStamp) Check() (DateInvalidFlags, error) {
 
 	var rslt DateInvalidFlags
 
 	err := checkError(
 		C.OCIDateTimeCheck(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
-			(*C.ub4)(unsafe.Pointer(&rslt))), dt.err)
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
+			(*C.ub4)(unsafe.Pointer(&rslt))), ts.err)
 
 	return rslt, processError(err)
 
 }
 
-func (dt *TimeStamp) Compare(d2 *TimeStamp) (int, error) {
+// Compare this TimeStamp with another TimeStamp.
+func (ts *TimeStamp) Compare(d2 *TimeStamp) (int, error) {
 
 	var rslt int16
 
 	err := checkError(
 		C.OCIDateTimeCompare(
-			unsafe.Pointer(dt.ses.ses),
-			dt.err,
-			dt.datetime,
+			unsafe.Pointer(ts.ses.ses),
+			ts.err,
+			ts.datetime,
 			d2.datetime,
-			(*C.sword)(unsafe.Pointer(&rslt))), dt.err)
+			(*C.sword)(unsafe.Pointer(&rslt))), ts.err)
 
 	return int(rslt), processError(err)
 }
 
-func (dt *TimeStamp) IntervalAdd(intvl *Interval) (*TimeStamp, error) {
+// IntervalAdd adds some time to an existing TimeStamp.
+func (ts *TimeStamp) IntervalAdd(intvl *Interval) (*TimeStamp, error) {
 
-	rslt := makeTimestampInstance(dt.ses, dt.tstype)
+	rslt := makeTimestampInstance(ts.ses, ts.tstype)
 
 	err := checkError(
 		C.OCIDateTimeIntervalAdd(
 			unsafe.Pointer(rslt.ses.ses),
 			rslt.err,
-			dt.datetime,
+			ts.datetime,
 			intvl.interval,
 			rslt.datetime), rslt.err)
 
@@ -348,15 +364,16 @@ func (dt *TimeStamp) IntervalAdd(intvl *Interval) (*TimeStamp, error) {
 
 }
 
-func (dt *TimeStamp) IntervalSub(intvl *Interval) (*TimeStamp, error) {
+// IntervalSub subtracts some time from an existing TimeStamp.
+func (ts *TimeStamp) IntervalSub(intvl *Interval) (*TimeStamp, error) {
 
-	rslt := makeTimestampInstance(dt.ses, dt.tstype)
+	rslt := makeTimestampInstance(ts.ses, ts.tstype)
 
 	err := checkError(
 		C.OCIDateTimeIntervalSub(
 			unsafe.Pointer(rslt.ses.ses),
 			rslt.err,
-			dt.datetime,
+			ts.datetime,
 			intvl.interval,
 			rslt.datetime), rslt.err)
 
@@ -364,22 +381,24 @@ func (dt *TimeStamp) IntervalSub(intvl *Interval) (*TimeStamp, error) {
 
 }
 
-func (dt *TimeStamp) Subtract(d2 *TimeStamp) (*Interval, error) {
+// Subtract provided TimeStamp from this TimeStamp. Returns an Interval.
+func (ts *TimeStamp) Subtract(d2 *TimeStamp) (*Interval, error) {
 
-	rslt := makeIntervalInstance(dt.ses, TypeIntervalDS)
+	rslt := makeIntervalInstance(ts.ses, TypeIntervalDS)
 
 	err := checkError(
 		C.OCIDateTimeSubtract(
 			unsafe.Pointer(rslt.ses.ses),
 			rslt.err,
 			d2.datetime,
-			dt.datetime,
+			ts.datetime,
 			rslt.interval), rslt.err)
 
 	return rslt, processError(err)
 
 }
 
+// ToText returns a TimeStamp as a string; you can provide a format and NLS Lang if you don't want to use the default session settings.
 func (ts *TimeStamp) ToText(params ...string) (string, error) {
 
 	buffer := make([]byte, 128)
@@ -387,22 +406,22 @@ func (ts *TimeStamp) ToText(params ...string) (string, error) {
 
 	var format []byte
 	var formatp unsafe.Pointer
-	var fmt_length C.ub1 = 0
+	var fmtLength C.ub1
 
-	var lang_name []byte
-	var lang_namep unsafe.Pointer
-	var lang_length C.size_t = 0
+	var langName []byte
+	var langNameP unsafe.Pointer
+	var langLength C.size_t
 
 	if len(params) > 0 {
 		format = []byte(params[0])
-		fmt_length = (C.ub1)(len(params[0]))
+		fmtLength = (C.ub1)(len(params[0]))
 		formatp = (unsafe.Pointer)(&format[0])
 	}
 
 	if len(params) > 1 {
-		lang_name = []byte(params[1])
-		lang_length = (C.size_t)(len(params[1]))
-		lang_namep = (unsafe.Pointer)(&lang_name[0])
+		langName = []byte(params[1])
+		langLength = (C.size_t)(len(params[1]))
+		langNameP = (unsafe.Pointer)(&langName[0])
 	}
 
 	err := checkError(
@@ -411,10 +430,10 @@ func (ts *TimeStamp) ToText(params ...string) (string, error) {
 			ts.err,
 			ts.datetime,
 			(*C.OraText)(formatp),
-			fmt_length,
+			fmtLength,
 			9,
-			(*C.OraText)(lang_namep),
-			lang_length,
+			(*C.OraText)(langNameP),
+			langLength,
 			(*C.ub4)(unsafe.Pointer(&buflen)),
 			(*C.OraText)(unsafe.Pointer(&buffer[0]))), ts.err)
 
@@ -430,8 +449,10 @@ func (ts *TimeStamp) String() string {
 	return rslt
 }
 
+// IntervalInvalidFlags type to represent invalid interval fields/flags.
 type IntervalInvalidFlags uint32
 
+// The possible flags that could be an error in an interval.
 const (
 	IntervalInvalidDay        IntervalInvalidFlags = C.OCI_INTER_INVALID_DAY
 	IntervalDayBelowValid     IntervalInvalidFlags = C.OCI_INTER_DAY_BELOW_VALID
@@ -449,6 +470,7 @@ const (
 	IntervalFracsecBelowValid IntervalInvalidFlags = C.OCI_INTER_FRACSEC_BELOW_VALID
 )
 
+// Check the integrity of an interval.
 func (intvl *Interval) Check() (IntervalInvalidFlags, error) {
 
 	var rslt IntervalInvalidFlags
@@ -464,6 +486,7 @@ func (intvl *Interval) Check() (IntervalInvalidFlags, error) {
 
 }
 
+// Compare this interval with a provided interval.
 func (intvl *Interval) Compare(i2 *Interval) (int, error) {
 
 	var rslt int16
@@ -479,6 +502,7 @@ func (intvl *Interval) Compare(i2 *Interval) (int, error) {
 	return int(rslt), processError(err)
 }
 
+// IntervalFromNumber converts an Oracle Number to an interval.
 func (session *Session) IntervalFromNumber(intype IntervalType, num *Number) (*Interval, error) {
 
 	rslt := makeIntervalInstance(session, intype)
@@ -493,6 +517,7 @@ func (session *Session) IntervalFromNumber(intype IntervalType, num *Number) (*I
 	return rslt, processError(err)
 }
 
+// IntervalFromString converts a string to an interval.
 func (session *Session) IntervalFromString(intype IntervalType, intvl string) (*Interval, error) {
 
 	rslt := makeIntervalInstance(session, intype)
@@ -510,6 +535,7 @@ func (session *Session) IntervalFromString(intype IntervalType, intvl string) (*
 	return rslt, processError(err)
 }
 
+// GetDaySecond extracts for a DAY TO SECOND interval
 func (intvl *Interval) GetDaySecond() (day, hour, minute, second, fracsecond int32, e error) {
 
 	err := checkError(
@@ -529,6 +555,7 @@ func (intvl *Interval) GetDaySecond() (day, hour, minute, second, fracsecond int
 
 }
 
+// GetYearMonth extracts for a YEAR TO MONTH interval
 func (intvl *Interval) GetYearMonth() (year, month int32, e error) {
 
 	err := checkError(
@@ -545,6 +572,7 @@ func (intvl *Interval) GetYearMonth() (year, month int32, e error) {
 
 }
 
+// SetDaySecond makes a DAY TO SECOND interval
 func (session *Session) SetDaySecond(day, hour, minute, second, fracsecond int32) (*Interval, error) {
 
 	rslt := makeIntervalInstance(session, TypeIntervalDS)
@@ -564,6 +592,7 @@ func (session *Session) SetDaySecond(day, hour, minute, second, fracsecond int32
 
 }
 
+// SetYearMonth makes a YEAR TO MONTH interval
 func (session *Session) SetYearMonth(year, month int32) (*Interval, error) {
 
 	rslt := makeIntervalInstance(session, TypeIntervalYM)
@@ -580,6 +609,7 @@ func (session *Session) SetYearMonth(year, month int32) (*Interval, error) {
 
 }
 
+// IntervalAdd adds provided Interval to this Interval, and returns a new Interval.
 func (intvl *Interval) IntervalAdd(i2 *Interval) (*Interval, error) {
 
 	rslt := makeIntervalInstance(intvl.ses, intvl.intype)
@@ -596,6 +626,7 @@ func (intvl *Interval) IntervalAdd(i2 *Interval) (*Interval, error) {
 
 }
 
+// IntervalSubtract subtracts provided Interval from this Interval, and returns a new Interval.
 func (intvl *Interval) IntervalSubtract(i2 *Interval) (*Interval, error) {
 
 	rslt := makeIntervalInstance(intvl.ses, intvl.intype)
@@ -612,6 +643,7 @@ func (intvl *Interval) IntervalSubtract(i2 *Interval) (*Interval, error) {
 
 }
 
+// ToNumber returns an Oracle Number from an Interval
 func (intvl *Interval) ToNumber() (*Number, error) {
 
 	rslt, e := NumberFromInt(0)
@@ -631,6 +663,7 @@ func (intvl *Interval) ToNumber() (*Number, error) {
 
 }
 
+// ToText returns the session formatted interval as a string.
 func (intvl *Interval) ToText(params ...uint8) (string, error) {
 
 	buffer := make([]byte, 128)
@@ -673,6 +706,7 @@ func (intvl *Interval) getFloat() (float64, error) {
 
 }
 
+// ToGoDuration converts an Oracle Interval to a Go duration type.
 func (intvl *Interval) ToGoDuration() (time.Duration, error) {
 	if intvl.intype == TypeIntervalDS {
 		// unit returned is day

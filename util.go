@@ -542,6 +542,7 @@ const (
 	attrDescSynbase                   ociAttrType = C.OCI_ATTR_DESC_SYNBASE           /* Describe the base object */
 	attrCharUsed                      ociAttrType = C.OCI_ATTR_CHAR_USED              /* char length semantics */
 	attrCharSize                      ociAttrType = C.OCI_ATTR_CHAR_SIZE              /* char length */
+	attrSessionState                  ociAttrType = C.OCI_ATTR_SESSION_STATE          /* session state */
 )
 
 func ociAttrGetString(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrType, errHandle *C.OCIError) (rslt string, err *OciError) {

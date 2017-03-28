@@ -2,7 +2,7 @@ package oci_test
 
 import (
 	"fmt"
-	"github.com/djbckr/oci"
+	"github.com/djbckr/ocigo"
 	"os"
 	"testing"
 	"time"
@@ -22,9 +22,9 @@ func TestOCI(t *testing.T) {
 	defer pool.Destroy()
 
 	fmt.Println("Getting Session")
-	ses, err := pool.GetSession()
+	ses, err := pool.Acquire()
 	checkerr(t, err)
-	defer ses.FreeSession()
+	defer ses.Release()
 
 	fmt.Println("Dropping table...")
 	execSql(ses, t, "drop table foo cascade constraints")

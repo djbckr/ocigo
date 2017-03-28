@@ -4,7 +4,7 @@ Description: Oracle Instant Client
 Version: 12.1
 
 # Prefix should point to your Oracle Client ($ORACLE_HOME)
-prefix=/home/djbckr/Oracle/instantclient_12_1
+prefix=/Users/djbckr/bin/oraclient/client
 
 # Your C include headers should be here
 includedir=${prefix}/sdk/include
@@ -16,4 +16,3 @@ Cflags: -I${includedir}
 # ln -s libclntsh.so.12.1 libclntsh.so
 # be sure to use the correct version number.
 Libs: -L${prefix} -lclntsh
-

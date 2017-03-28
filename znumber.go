@@ -148,15 +148,15 @@ func NumberFromStringFmt(val string, fmt string, nls string) (*Number, error) {
 
 	str := []byte(val)
 
-	var format []byte = []byte(fmt)
-	var fmtlen C.ub4 = (C.ub4)(len(format))
+	var format = []byte(fmt)
+	var fmtlen = (C.ub4)(len(format))
 	var formatp *C.oratext
 	if fmtlen > 0 {
 		formatp = (*C.oratext)(unsafe.Pointer(&format[0]))
 	}
 
-	var nlsparams []byte = []byte(nls)
-	var nlsparlen C.ub4 = (C.ub4)(len(nlsparams))
+	var nlsparams = []byte(nls)
+	var nlsparlen = (C.ub4)(len(nlsparams))
 	var nlsparamsp *C.oratext
 	if nlsparlen > 0 {
 		nlsparamsp = (*C.oratext)(unsafe.Pointer(&nlsparams[0]))
@@ -253,7 +253,7 @@ func (num *Number) ToString(fmt, nls string) (string, error) {
 	}
 
 	var nlsparams []byte
-	var nlsparlen C.ub4 = 0
+	var nlsparlen C.ub4
 	var nlsparamsp *C.oratext
 
 	if len(nls) > 0 {
