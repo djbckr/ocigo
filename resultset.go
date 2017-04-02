@@ -51,33 +51,31 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 		return nil, processError(err)
 	}
 
-	var parmcnt uint32
+	var paramCount uint32
 
-	parmcnt, err = ociAttrGetUB4(unsafe.Pointer(stmt.stm), htypeStatement, attrParamCount, stmt.err)
+	paramCount, err = ociAttrGetUB4(unsafe.Pointer(stmt.stm), htypeStatement, attrParamCount, stmt.err)
 
 	if err != nil {
 		return nil, processError(err)
 	}
 
-	fmt.Println("param count: ", parmcnt)
-
 	rslt := &ResultSet{stmt: stmt}
-	rslt.columns = make([]*Column, parmcnt)
+	rslt.columns = make([]*Column, paramCount)
 
 	// 8==1, 16==2, 32==4, 64==8
 
 	var colIndx uint32 = 1
 	var arrIndx uint32
 
-	for colIndx <= parmcnt {
+	for colIndx <= paramCount {
 
-		paramp, err := stmt.getParameter(colIndx)
+		paramPtr, err := stmt.getParameter(colIndx)
 
 		if err != nil {
 			return nil, processError(err)
 		}
 
-		rslt.columns[arrIndx], err = getColumnInfo(paramp, stmt.err)
+		rslt.columns[arrIndx], err = getColumnInfo(paramPtr, stmt.err)
 
 		if err != nil {
 			return nil, processError(err)
@@ -104,13 +102,13 @@ func (stmt *Statement) getParameter(indx uint32) (rslt *C.OCIParam, err *OciErro
 	return
 }
 
-func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *OciError) {
+func getColumnInfo(paramPtr *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *OciError) {
 	rslt = &Column{}
 
 	// data type (C.ub2)
 	var ub2 uint16
 	ub2, err = ociAttrGetUB2(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrDataType, errhndl)
 
@@ -121,7 +119,7 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 
 	// name (C.OraText *)
 	rslt.name, err = ociAttrGetString(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrName,
 		errhndl)
@@ -132,7 +130,7 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 
 	// data size (C.ub2) // num bytes needed
 	ub2, err = ociAttrGetUB2(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrDataSize, errhndl)
 
@@ -144,7 +142,7 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 
 	// char_size (C.ub2) // num chars allowed
 	ub2, err = ociAttrGetUB2(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrCharSize, errhndl)
 
@@ -158,7 +156,7 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	var bb uint8
 
 	bb, err = ociAttrGetUB1(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrCharUsed, errhndl)
 
@@ -172,11 +170,12 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 		rslt.charSemantics = charSemanticsChar
 	}
 
-	// precision (C.sb2) // The precision of numeric columns. If the precision is nonzero and scale is -127, then it is a FLOAT; otherwise, it is a NUMBER(precision, scale). When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
+	// precision (C.sb2) // The precision of numeric columns. If the precision is nonzero and scale is -127, then it is a FLOAT; otherwise, it is a NUMBER(precision, scale).
+	// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
 	var sb2 int16
 
 	sb2, err = ociAttrGetSB2(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrPrecision, errhndl)
 
@@ -186,12 +185,11 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 
 	rslt.precision = sb2
 
-	// scale (C.sb1)
-
 	var sb1 int8
 
+	// scale (C.sb1)
 	sb1, err = ociAttrGetSB1(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrScale, errhndl)
 
@@ -205,7 +203,7 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	var nn int8
 
 	nn, err = ociAttrGetSB1(
-		(unsafe.Pointer)(paramp),
+		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrIsNull, errhndl)
 
@@ -222,19 +220,19 @@ func getColumnInfo(paramp *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err *
 	if rslt.datatype == sqltObject {
 
 		rslt.nTypeName, err = ociAttrGetString(
-			(unsafe.Pointer)(paramp),
+			(unsafe.Pointer)(paramPtr),
 			(ociHandleType)(dtypeParam),
 			attrTypeName, errhndl)
 
 		if err != nil {
 			return
 		}
-		/*
-			rslt.nTypeSchema, err = ociAttrGetString(
-				(unsafe.Pointer)(paramp),
-				(ociHandleType)(dtypeParam),
-				attrTypeSchema, errhndl)
-		*/
+
+		rslt.nTypeSchema, err = ociAttrGetString(
+			(unsafe.Pointer)(paramPtr),
+			(ociHandleType)(dtypeParam),
+			attrTypeSchema, errhndl)
+
 	}
 
 	return

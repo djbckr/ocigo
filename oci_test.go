@@ -2,13 +2,15 @@ package oci_test
 
 import (
 	"fmt"
-	"github.com/djbckr/ocigo"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/djbckr/ocigo"
 )
 
 func TestOCI(t *testing.T) {
+	fmt.Println("Starting...")
 
 	connstring := os.Getenv("CONNECT_STRING")
 
