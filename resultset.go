@@ -10,7 +10,6 @@ import (
 	//"crypto/sha256"
 	//"encoding/hex"
 	"errors"
-	"fmt"
 	"unsafe"
 	//"time"
 )
@@ -43,7 +42,7 @@ type ResultSet struct {
 func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 
 	if stmt.stmtype != StmtSelect {
-		return nil, errors.New("Statement type must be a query")
+		return nil, errors.New("statement type must be a query")
 	}
 
 	err := stmt.exec(count, false)
@@ -81,14 +80,13 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 			return nil, processError(err)
 		}
 
-		fmt.Println(rslt.columns[arrIndx])
+		// fmt.Println(rslt.columns[arrIndx])
 
 		colIndx++
 		arrIndx++
 	}
 
-	// TODO get result meta-data
-	return nil, nil
+	return rslt, nil
 }
 
 func (stmt *Statement) getParameter(indx uint32) (rslt *C.OCIParam, err *OciError) {
@@ -231,7 +229,7 @@ func getColumnInfo(paramPtr *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err
 		rslt.nTypeSchema, err = ociAttrGetString(
 			(unsafe.Pointer)(paramPtr),
 			(ociHandleType)(dtypeParam),
-			attrTypeSchema, errhndl)
+			attrSchemaName, errhndl)
 
 	}
 

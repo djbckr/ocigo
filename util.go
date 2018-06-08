@@ -7,7 +7,7 @@ package oci
 import "C"
 
 /*
-   This primarily pulls over the OCI definitions into a Go type,
+   This file primarily pulls over the OCI definitions into a Go type,
    plus some basic functions used all over the OCI.
 */
 
@@ -621,6 +621,6 @@ func ociAttrGetUB8(handle unsafe.Pointer, htype ociHandleType, attrType ociAttrT
 }
 
 func ociAttrSet(handle unsafe.Pointer, htype ociHandleType, attrPtr unsafe.Pointer, attrSize C.ub4, attrType ociAttrType, errHandle *C.OCIError) *OciError {
-	fmt.Println("ociAttrSet: ", htype, attrType)
+	// fmt.Println("ociAttrSet: ", htype, attrType)
 	return checkError(C.OCIAttrSet(handle, (C.ub4)(htype), attrPtr, attrSize, (C.ub4)(attrType), errHandle), errHandle)
 }

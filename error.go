@@ -64,6 +64,7 @@ func processError(err *OciError) error {
 
 // this function is called on nearly every OCI call
 func checkError(errval C.sword, errhndl *C.OCIError) (result *OciError) {
+
 	if errval == C.OCI_SUCCESS {
 		result = nil
 		return
@@ -108,8 +109,16 @@ MyLoop:
 		} else {
 			pp = &p2
 		}
-		callresult := C.OCIErrorGet(unsafe.Pointer(errh), (C.ub4)(indx), nil, (*C.sb4)(pp), (*C.OraText)(unsafe.Pointer(&buffer[0])), (C.ub4)(BUFSIZE), C.OCI_HTYPE_ERROR)
-		switch callresult {
+
+		callResult := C.OCIErrorGet(
+			unsafe.Pointer(errh),
+			(C.ub4)(indx),
+			nil,
+			(*C.sb4)(pp),
+			(*C.OraText)(unsafe.Pointer(&buffer[0])),
+			(C.ub4)(BUFSIZE), C.OCI_HTYPE_ERROR)
+
+		switch callResult {
 		case C.OCI_SUCCESS:
 			rslts = append(rslts, nulTerminatedByteToString(buffer))
 			for i := 0; i < BUFSIZE; i++ {
@@ -117,8 +126,8 @@ MyLoop:
 			}
 		case C.OCI_NO_DATA:
 			break MyLoop
-		default:
-			rslts = append(rslts, fmt.Sprintf("Error retrieving error: code %v", callresult))
+		default: // this should *never* happen!
+			rslts = append(rslts, fmt.Sprintf("Error retrieving error: code %v", callResult))
 			break MyLoop
 		}
 	}
