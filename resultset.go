@@ -7,11 +7,12 @@ package oci
 import "C"
 
 import (
-	//"crypto/sha256"
-	//"encoding/hex"
+	// "crypto/sha256"
+	// "encoding/hex"
 	"errors"
 	"unsafe"
-	//"time"
+	// "time"
+	"fmt"
 )
 
 type tCharSemantics int8
@@ -24,7 +25,7 @@ const (
 type Column struct {
 	datatype      ociSqlType
 	name          string
-	sizeBytes     uint16
+	sizeBytes     int32
 	sizeChars     uint16
 	charSemantics tCharSemantics
 	precision     int16
@@ -32,11 +33,63 @@ type Column struct {
 	nullable      bool
 	nTypeName     string
 	nTypeSchema   string
+	defnptr       *C.OCIDefine
+	buffer        interface{}
+	bufptr        unsafe.Pointer
+	ind           *C.sb2
+}
+
+func charSemantics(c tCharSemantics) string {
+	switch c {
+	case charSemanticsByte:
+		return "B"
+	case charSemanticsChar:
+		return "C"
+	default:
+		return "-"
+	}
 }
 
 type ResultSet struct {
 	stmt    *Statement
 	columns []*Column
+}
+
+func (rs *ResultSet) GetColumns() []*Column {
+	return rs.columns
+}
+
+func (rs *ResultSet) Fetch() (rslt bool, err *OciError) {
+
+	err = checkError(
+		C.OCIStmtFetch2(
+			rs.stmt.stm,
+			rs.stmt.err,
+			1, C.OCI_FETCH_NEXT, 0, C.OCI_DEFAULT), rs.stmt.err)
+
+	rslt = err == nil
+
+	if !rslt {
+		if err.code == 1403 {
+			err = nil
+		}
+	}
+
+	return
+}
+
+func (col *Column) Print() string {
+	return fmt.Sprintf("Name: %v ~ Type: %v ~ SizeBytes: %v ~ SizeChars: %v ~ Char/Byte: %v ~ Prec: %v ~ Scale: %v ~ Nullable: %v ~ ObjSchema: %v ~ ObjName: %v",
+		col.name, SqlTypeName(col.datatype), col.sizeBytes, col.sizeChars, charSemantics(col.charSemantics), col.precision, col.scale, col.nullable, col.nTypeSchema, col.nTypeName)
+}
+
+func (col *Column) Get() interface{} {
+	switch v := col.buffer.(type) {
+	case []byte:
+		return nulTerminatedByteToString(v)
+	default:
+		return nil
+	}
 }
 
 func (stmt *Statement) query(count uint32) (*ResultSet, error) {
@@ -80,6 +133,8 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 			return nil, processError(err)
 		}
 
+		stmt.doDefine(rslt.columns[arrIndx], colIndx)
+
 		// fmt.Println(rslt.columns[arrIndx])
 
 		colIndx++
@@ -87,6 +142,41 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 	}
 
 	return rslt, nil
+}
+
+func (stmt *Statement) doDefine(column *Column, colIndx uint32) (err *OciError) {
+
+	var pdefnptr *C.OCIDefine
+	var pind C.sb2
+
+	switch column.datatype {
+	case sqltVarchar, sqltVarchar2, sqltChar:
+		sizeBytes := column.sizeBytes+1;
+		buf := make([]byte, sizeBytes)
+		column.buffer = buf
+		column.bufptr = unsafe.Pointer(&buf[0])
+
+		rcode := C.OCIDefineByPos(
+			stmt.stm,
+			&pdefnptr,
+			stmt.err,
+			C.ub4(colIndx),
+			column.bufptr,
+			C.sb4(sizeBytes),
+			C.SQLT_STR,
+			unsafe.Pointer(&pind),
+			nil, nil, C.OCI_DEFAULT)
+
+		err = checkError(rcode, stmt.err)
+		column.defnptr = pdefnptr
+		column.ind = &pind
+		fmt.Println("defined column " + column.name)
+
+	default:
+		// do nothing for now
+	}
+
+	return
 }
 
 func (stmt *Statement) getParameter(indx uint32) (rslt *C.OCIParam, err *OciError) {
@@ -105,6 +195,7 @@ func getColumnInfo(paramPtr *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err
 
 	// data type (C.ub2)
 	var ub2 uint16
+	var sb4 int32
 	ub2, err = ociAttrGetUB2(
 		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
@@ -127,7 +218,7 @@ func getColumnInfo(paramPtr *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err
 	}
 
 	// data size (C.ub2) // num bytes needed
-	ub2, err = ociAttrGetUB2(
+	sb4, err = ociAttrGetSB4(
 		(unsafe.Pointer)(paramPtr),
 		(ociHandleType)(dtypeParam),
 		attrDataSize, errhndl)
@@ -136,7 +227,7 @@ func getColumnInfo(paramPtr *C.OCIParam, errhndl *C.OCIError) (rslt *Column, err
 		return
 	}
 
-	rslt.sizeBytes = ub2
+	rslt.sizeBytes = sb4
 
 	// char_size (C.ub2) // num chars allowed
 	ub2, err = ociAttrGetUB2(

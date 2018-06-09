@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"fmt"
 	"unsafe"
+	"strconv"
 )
 
 func nulTerminatedByteToString(buf []byte) string {
@@ -71,8 +72,114 @@ const (
 	sqltNChar           ociSqlType = C.OCI_TYPECODE_NCHAR
 	sqltNVarchar2       ociSqlType = C.OCI_TYPECODE_NVARCHAR2
 	sqltNCLOB           ociSqlType = C.OCI_TYPECODE_NCLOB
+	sqltLong            ociSqlType = C.SQLT_LNG                     /* LONG */
+	sqltCursor          ociSqlType = C.SQLT_CUR                     /* CURSOR */
+	sqltResultSet       ociSqlType = C.SQLT_RSET                    /* Result Set (Nested Cursor) */
 	sqltNone            ociSqlType = C.OCI_TYPECODE_NONE
 )
+
+func SqlTypeName(sqlt ociSqlType) string {
+	switch sqlt {
+	case sqltRef:
+		return "REF"
+	case sqltDate:
+		return "DATE"
+	case sqltSigned8:
+		return "SIGNED INTEGER(8)"
+	case sqltSigned16:
+		return "SIGNED INTEGER(16)"
+	case sqltSigned32:
+		return "SIGNED INTEGER(32)"
+	case sqltReal:
+		return "REAL"
+	case sqltDouble:
+		return "DOUBLE"
+	case sqltBFloat:
+		return "BINARY FLOAT"
+	case sqltBDouble:
+		return "BINARY DOUBLE"
+	case sqltFloat:
+		return "FLOAT"
+	case sqltNumber:
+		return "NUMBER"
+	case sqltDecimal:
+		return "DECIMAL"
+	case sqltUnsigned8:
+		return "UNSIGNED INTEGER(8)"
+	case sqltUnsigned16:
+		return "UNSIGNED INTEGER(16)"
+	case sqltUnsigned32:
+		return "UNSIGNED INTEGER(32)"
+	case sqltOctet:
+		return "OCTET"
+	case sqltSmallint:
+		return "SMALLINT"
+	case sqltInteger:
+		return "INTEGER"
+	case sqltRaw:
+		return "RAW"
+	case sqltPtr:
+		return "POINTER"
+	case sqltVarchar2:
+		return "VARCHAR2"
+	case sqltChar:
+		return "CHAR"
+	case sqltVarchar:
+		return "VARCHAR"
+	case sqltMlsLabel:
+		return "MLSLABEL"
+	case sqltVArray:
+		return "VARRAY"
+	case sqltTable:
+		return "TABLE"
+	case sqltObject:
+		return "NAMED TYPE"
+	case sqltOpaque:
+		return "OPAQUE"
+	case sqltNamedCollection:
+		return "NAMED COLLECTION"
+	case sqltBLOB:
+		return "BLOB"
+	case sqltBFile:
+		return "BFILE"
+	case sqltCLOB:
+		return "CLOB"
+	case sqltCFile:
+		return "CFILE"
+	case sqltTime:
+		return "TIME"
+	case sqltTimeTZ:
+		return "TIME WITH TIME ZONE"
+	case sqltTimestamp:
+		return "TIMESTAMP"
+	case sqltTimestampTZ:
+		return "TIMESTAMP WITH TIME ZONE"
+	case sqltTimestampLTZ:
+		return "TIMESTAMP WITH LOCAL TIME ZONE"
+	case sqltIntervalYM:
+		return "INTERVAL YEAR TO MONTH"
+	case sqltIntervalDS:
+		return "INTERVAL DAY TO SECOND"
+	case sqltURowID:
+		return "UROWID"
+	case sqltPlsInteger:
+		return "PLS_INTEGER"
+	case sqltNChar:
+		return "NCHAR"
+	case sqltNVarchar2:
+		return "NVARCHAR2"
+	case sqltNCLOB:
+		return "NCLOB"
+	case sqltLong:
+		return "LONG"
+	case sqltCursor:
+		return "CURSOR"
+	case sqltResultSet:
+		return "RESULT SET"
+	default:
+		return strconv.Itoa(int(sqlt))
+	}
+}
 
 type ociHandleType C.ub4
 

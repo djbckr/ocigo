@@ -57,7 +57,7 @@ create table foo (
   "TimeStampTZ"  TIMESTAMP WITH TIME ZONE,
   "TimeStampLTZ" TIMESTAMP WITH LOCAL TIME ZONE,
   "URowID"       UROWID,
-  "VarChar2C"    VARCHAR2(100 char),
+  "VarChar2C"    VARCHAR2(100 char) not null,
   "VarChar2B"    VARCHAR2(100 byte),
   "XmlType"      XMLTYPE
 )`)
@@ -82,7 +82,8 @@ create table foo (
 	ses.Commit()
 
 	fmt.Println("Running query...")
-	querySql(ses, t, "select f.*, 'literal' as \"SomethingLiteral\" from foo f")
+	// querySql(ses, t, `select f.*, 'literal' as "SomethingLiteral", cursor(select 1 as "Foo" from dual union all select 2 from dual ) as "Nested Cursor" from foo f`)
+	querySql(ses, t, `select "CharC", "CharB", "VarChar2C", "VarChar2B", "Number" from foo`)
 
 	n1, err := oci.NumberFromInt(2)
 	checkerr(t, err)
@@ -140,6 +141,24 @@ func querySql(ses *oci.Session, t *testing.T, sql string) {
 	stmt, err := ses.Prepare(sql)
 	checkerr(t, err)
 	defer stmt.Release(false)
-	_, err = stmt.Query()
+	rs, err := stmt.Query()
 	checkerr(t, err)
+
+	for _, v := range rs.GetColumns() {
+		fmt.Println(v.Print())
+	}
+
+	for {
+		fetched, err := rs.Fetch()
+		if err != nil {
+			checkerr(t, err)
+		}
+		if fetched {
+			for _, v := range rs.GetColumns() {
+				fmt.Println(v.Get())
+			}
+		} else {
+			break
+		}
+	}
 }
