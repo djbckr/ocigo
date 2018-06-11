@@ -4,7 +4,7 @@ Description: Oracle Instant Client
 Version: 12.1
 
 # Prefix should point to your Oracle Client ($ORACLE_HOME)
-prefix=/Users/dbecker/bin/Oracle
+prefix=/Users/djbckr/bin/oraclient/instantclient_12_1/
 
 # Your C include headers should be here
 includedir=${prefix}/sdk/include

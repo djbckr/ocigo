@@ -38,6 +38,12 @@ type Interval struct {
 	intype   IntervalType
 }
 
+type Date struct {
+	ses  *Session
+	err  *C.OCIError
+	date [7]byte
+}
+
 // TimestampType clarifies the actual TimeStamp struct.
 type TimestampType C.ub4
 
@@ -70,6 +76,10 @@ func finalizerInterval(iv *Interval) {
 	finalizer((unsafe.Pointer)(iv.interval), (unsafe.Pointer)(iv.err), (C.ub4)(iv.intype))
 }
 
+func finalizerDate(d *Date) {
+	ociHandleFree(unsafe.Pointer(d.err), htypeError)
+}
+
 func makeTimestampInstance(s *Session, typ TimestampType) (rslt *TimeStamp) {
 	rslt = &TimeStamp{ses: s, tstype: typ}
 	rslt.datetime = (*C.OCIDateTime)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
@@ -86,6 +96,12 @@ func makeIntervalInstance(s *Session, typ IntervalType) (rslt *Interval) {
 	return
 }
 
+func makeDateInstance(s *Session) (rslt *Date) {
+	rslt = &Date{ses: s}
+	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
+	runtime.SetFinalizer(rslt, finalizerDate)
+	return
+}
 /*****************************************************************************/
 
 // SysTimeStamp gets System Time Stamp based on Database Session settings
@@ -285,7 +301,7 @@ func (ts *TimeStamp) ToGoTime() time.Time {
 
 	loc, locerr = time.LoadLocation(timezone)
 	if locerr != nil {
-		loc = time.FixedZone("", int((hroffs*60*60))+int((mnoffs*60)))
+		loc = time.FixedZone("", int((hroffs * 60 * 60))+int((mnoffs * 60)))
 	}
 
 	return time.Date(int(year), (time.Month)(month), int(day), int(hour), int(min), int(sec), int(fsec), loc)
@@ -694,6 +710,14 @@ func (intvl *Interval) ToText(params ...uint8) (string, error) {
 
 }
 
+func (intvl *Interval) String() string {
+	str, err := intvl.ToText()
+	if err != nil {
+		return err.Error()
+	}
+	return str
+}
+
 func (intvl *Interval) getFloat() (float64, error) {
 
 	num, e := intvl.ToNumber()
@@ -723,4 +747,53 @@ func (intvl *Interval) ToGoDuration() (time.Duration, error) {
 		return time.Duration(d * 31557600 * float64(time.Second)), e
 	}
 	return time.Duration(0), errors.New("Unknown Interval Type")
+}
+
+func (date *Date) ToText(params ...string) (string, error) {
+
+	buffer := make([]byte, 128)
+	var buflen C.ub4 = 128
+
+	var format []byte
+	var formatp unsafe.Pointer
+	var fmtLength C.ub1
+
+	var langName []byte
+	var langNameP unsafe.Pointer
+	var langLength C.ub4
+
+	if len(params) > 0 {
+		format = []byte(params[0])
+		fmtLength = (C.ub1)(len(params[0]))
+		formatp = (unsafe.Pointer)(&format[0])
+	}
+
+	if len(params) > 1 {
+		langName = []byte(params[1])
+		langLength = (C.ub4)(len(params[1]))
+		langNameP = (unsafe.Pointer)(&langName[0])
+	}
+
+	err := checkError(
+		C.OCIDateToText(
+			date.err,
+			(*C.OCIDate)(unsafe.Pointer(&date.date[0])),
+			(*C.OraText)(formatp),
+			fmtLength,
+			(*C.OraText)(langNameP),
+			langLength,
+			(*C.ub4)(unsafe.Pointer(&buflen)),
+			(*C.OraText)(unsafe.Pointer(&buffer[0]))), date.err)
+
+	return string(buffer[:buflen]), processError(err)
+
+}
+
+func (date *Date) String() string {
+	d, e := date.ToText()
+	if e != nil {
+		return e.Error()
+	}
+
+	return d
 }

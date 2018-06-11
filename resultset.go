@@ -35,7 +35,6 @@ type Column struct {
 	nTypeSchema   string
 	defnptr       *C.OCIDefine
 	buffer        interface{}
-	bufptr        unsafe.Pointer
 	ind           *C.sb2
 }
 
@@ -87,6 +86,14 @@ func (col *Column) Get() interface{} {
 	switch v := col.buffer.(type) {
 	case []byte:
 		return nulTerminatedByteToString(v)
+	case *Number:
+		return v
+	case *TimeStamp:
+		return v
+	case float64:
+		return v
+	case float32:
+		return v
 	default:
 		return nil
 	}
@@ -146,34 +153,71 @@ func (stmt *Statement) query(count uint32) (*ResultSet, error) {
 
 func (stmt *Statement) doDefine(column *Column, colIndx uint32) (err *OciError) {
 
-	var pdefnptr *C.OCIDefine
-	var pind C.sb2
+	var sqlType ociSqlType
+	var sizeBytes int32
+	var buffer interface{}
+	var bufptr unsafe.Pointer
 
 	switch column.datatype {
 	case sqltVarchar, sqltVarchar2, sqltChar:
-		sizeBytes := column.sizeBytes+1;
+		sizeBytes = column.sizeBytes + 1 // null terminated string
 		buf := make([]byte, sizeBytes)
-		column.buffer = buf
-		column.bufptr = unsafe.Pointer(&buf[0])
+		buffer = buf
+		bufptr = unsafe.Pointer(&buf[0])
+		sqlType = C.SQLT_STR
 
-		rcode := C.OCIDefineByPos(
+	case sqltNumber:
+		sizeBytes = column.sizeBytes
+		num := makeNumberInstance()
+		buffer = num
+		bufptr = unsafe.Pointer(&num.number)
+		sqlType = C.SQLT_VNU
+
+	case sqltBFloat:
+		sizeBytes = 4
+		sqlType = C.SQLT_BFLOAT
+		var flt32 float32
+		buffer = flt32
+		bufptr = unsafe.Pointer(&flt32)
+
+	case sqltBDouble:
+		sizeBytes = 8
+		sqlType = C.SQLT_BDOUBLE
+		var flt64 float64
+		buffer = flt64
+		bufptr = unsafe.Pointer(&flt64)
+
+	case sqltDate:
+		sizeBytes = 7
+		date := makeDateInstance(stmt.ses)
+		buffer = date
+		bufptr = unsafe.Pointer(&date.date[0])
+		sqlType = C.SQLT_DAT
+
+	default:
+		// do nothing for now
+	}
+
+	var pdefnptr *C.OCIDefine
+	var pind C.sb2
+
+	if sqlType != 0 {
+		fmt.Println("defining " + column.name)
+		err = checkError(C.OCIDefineByPos(
 			stmt.stm,
 			&pdefnptr,
 			stmt.err,
 			C.ub4(colIndx),
-			column.bufptr,
+			bufptr,
 			C.sb4(sizeBytes),
-			C.SQLT_STR,
+			C.ub2(sqlType),
 			unsafe.Pointer(&pind),
-			nil, nil, C.OCI_DEFAULT)
+			nil, nil, C.OCI_DEFAULT), stmt.err)
 
-		err = checkError(rcode, stmt.err)
+		column.buffer = buffer
 		column.defnptr = pdefnptr
 		column.ind = &pind
 		fmt.Println("defined column " + column.name)
-
-	default:
-		// do nothing for now
 	}
 
 	return
