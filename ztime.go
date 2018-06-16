@@ -18,8 +18,7 @@ import (
    Support for Oracle Timestamp (with Time Zone/Local Time Zone)
    Support for Oracle Interval (Year to Month/Day to Second)
 
-   The OCI structures are more complicated and require
-   allocating/deallocating descriptors when used.
+   The OCI structures require allocating/deallocating descriptors when used.
 */
 
 // TimeStamp is an opaque structure that represents an Oracle TIMESTAMP [WITH [LOCAL] TIMEZONE]
@@ -27,6 +26,7 @@ type TimeStamp struct {
 	ses      *Session
 	err      *C.OCIError
 	datetime *C.OCIDateTime
+	ptrdt    unsafe.Pointer // pointer to the datetime field
 	tstype   TimestampType
 }
 
@@ -35,13 +35,8 @@ type Interval struct {
 	ses      *Session
 	err      *C.OCIError
 	interval *C.OCIInterval
+	ptrintvl unsafe.Pointer // pointer to the interval field
 	intype   IntervalType
-}
-
-type Date struct {
-	ses  *Session
-	err  *C.OCIError
-	date [7]byte
 }
 
 // TimestampType clarifies the actual TimeStamp struct.
@@ -76,13 +71,11 @@ func finalizerInterval(iv *Interval) {
 	finalizer((unsafe.Pointer)(iv.interval), (unsafe.Pointer)(iv.err), (C.ub4)(iv.intype))
 }
 
-func finalizerDate(d *Date) {
-	ociHandleFree(unsafe.Pointer(d.err), htypeError)
-}
-
 func makeTimestampInstance(s *Session, typ TimestampType) (rslt *TimeStamp) {
 	rslt = &TimeStamp{ses: s, tstype: typ}
-	rslt.datetime = (*C.OCIDateTime)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	dt := (*C.OCIDateTime)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	rslt.datetime = dt
+	rslt.ptrdt = unsafe.Pointer(&dt)
 	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 	runtime.SetFinalizer(rslt, finalizerTimestamp)
 	return
@@ -90,18 +83,14 @@ func makeTimestampInstance(s *Session, typ TimestampType) (rslt *TimeStamp) {
 
 func makeIntervalInstance(s *Session, typ IntervalType) (rslt *Interval) {
 	rslt = &Interval{ses: s, intype: typ}
-	rslt.interval = (*C.OCIInterval)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	intvl := (*C.OCIInterval)(ociDescriptorAlloc((unsafe.Pointer)(genv), (ociDescriptorType)(typ)))
+	rslt.interval = intvl
+	rslt.ptrintvl = unsafe.Pointer(&intvl)
 	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
 	runtime.SetFinalizer(rslt, finalizerInterval)
 	return
 }
 
-func makeDateInstance(s *Session) (rslt *Date) {
-	rslt = &Date{ses: s}
-	rslt.err = (*C.OCIError)(ociHandleAlloc((unsafe.Pointer)(genv), htypeError))
-	runtime.SetFinalizer(rslt, finalizerDate)
-	return
-}
 /*****************************************************************************/
 
 // SysTimeStamp gets System Time Stamp based on Database Session settings
@@ -747,53 +736,4 @@ func (intvl *Interval) ToGoDuration() (time.Duration, error) {
 		return time.Duration(d * 31557600 * float64(time.Second)), e
 	}
 	return time.Duration(0), errors.New("Unknown Interval Type")
-}
-
-func (date *Date) ToText(params ...string) (string, error) {
-
-	buffer := make([]byte, 128)
-	var buflen C.ub4 = 128
-
-	var format []byte
-	var formatp unsafe.Pointer
-	var fmtLength C.ub1
-
-	var langName []byte
-	var langNameP unsafe.Pointer
-	var langLength C.ub4
-
-	if len(params) > 0 {
-		format = []byte(params[0])
-		fmtLength = (C.ub1)(len(params[0]))
-		formatp = (unsafe.Pointer)(&format[0])
-	}
-
-	if len(params) > 1 {
-		langName = []byte(params[1])
-		langLength = (C.ub4)(len(params[1]))
-		langNameP = (unsafe.Pointer)(&langName[0])
-	}
-
-	err := checkError(
-		C.OCIDateToText(
-			date.err,
-			(*C.OCIDate)(unsafe.Pointer(&date.date[0])),
-			(*C.OraText)(formatp),
-			fmtLength,
-			(*C.OraText)(langNameP),
-			langLength,
-			(*C.ub4)(unsafe.Pointer(&buflen)),
-			(*C.OraText)(unsafe.Pointer(&buffer[0]))), date.err)
-
-	return string(buffer[:buflen]), processError(err)
-
-}
-
-func (date *Date) String() string {
-	d, e := date.ToText()
-	if e != nil {
-		return e.Error()
-	}
-
-	return d
 }

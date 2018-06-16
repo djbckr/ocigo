@@ -35,7 +35,7 @@ type Column struct {
 	nTypeSchema   string
 	defnptr       *C.OCIDefine
 	buffer        interface{}
-	ind           *C.sb2
+	ind           *int16
 }
 
 func charSemantics(c tCharSemantics) string {
@@ -82,7 +82,20 @@ func (col *Column) Print() string {
 		col.name, SqlTypeName(col.datatype), col.sizeBytes, col.sizeChars, charSemantics(col.charSemantics), col.precision, col.scale, col.nullable, col.nTypeSchema, col.nTypeName)
 }
 
+func (col *Column) IsNull() bool {
+	return col.ind != nil && *col.ind != 0
+}
+
+func (col *Column) IsNotNull() bool {
+	return col.ind != nil && *col.ind == 0
+}
+
 func (col *Column) Get() interface{} {
+
+	if col.ind != nil && *col.ind != 0 {
+		return nil
+	}
+
 	switch v := col.buffer.(type) {
 	case []byte:
 		return nulTerminatedByteToString(v)
@@ -90,9 +103,13 @@ func (col *Column) Get() interface{} {
 		return v
 	case *TimeStamp:
 		return v
-	case float64:
+	case *float64:
+		return *v
+	case *float32:
+		return *v
+	case *Interval:
 		return v
-	case float32:
+	case *Raw:
 		return v
 	default:
 		return nil
@@ -159,8 +176,8 @@ func (stmt *Statement) doDefine(column *Column, colIndx uint32) (err *OciError) 
 	var bufptr unsafe.Pointer
 
 	switch column.datatype {
-	case sqltVarchar, sqltVarchar2, sqltChar:
-		sizeBytes = column.sizeBytes + 1 // null terminated string
+	case sqltVarchar, sqltVarchar2, sqltChar :
+		sizeBytes = column.sizeBytes + 1
 		buf := make([]byte, sizeBytes)
 		buffer = buf
 		bufptr = unsafe.Pointer(&buf[0])
@@ -177,29 +194,65 @@ func (stmt *Statement) doDefine(column *Column, colIndx uint32) (err *OciError) 
 		sizeBytes = 4
 		sqlType = C.SQLT_BFLOAT
 		var flt32 float32
-		buffer = flt32
+		buffer = &flt32
 		bufptr = unsafe.Pointer(&flt32)
 
 	case sqltBDouble:
 		sizeBytes = 8
 		sqlType = C.SQLT_BDOUBLE
 		var flt64 float64
-		buffer = flt64
+		buffer = &flt64
 		bufptr = unsafe.Pointer(&flt64)
 
-	case sqltDate:
-		sizeBytes = 7
-		date := makeDateInstance(stmt.ses)
+	case sqltDate, sqltTimestamp, sqltTimestampTZ, sqltTimestampLTZ:
+		var tstype TimestampType
+		switch column.datatype {
+		case sqltDate, sqltTimestamp:
+			tstype = TypeTimestamp
+			sqlType = sqltTimestamp
+		case sqltTimestampTZ:
+			tstype = TypeTimestampTZ
+			sqlType = sqltTimestampTZ
+		case sqltTimestampLTZ:
+			tstype = TypeTimestampLTZ
+			sqlType = sqltTimestampLTZ
+		}
+		sizeBytes = 0
+		date := makeTimestampInstance(stmt.ses, tstype)
 		buffer = date
-		bufptr = unsafe.Pointer(&date.date[0])
-		sqlType = C.SQLT_DAT
+		bufptr = date.ptrdt
+
+	case sqltIntervalDS, sqltIntervalYM:
+		var itype IntervalType
+		switch column.datatype {
+		case sqltIntervalDS:
+			itype = TypeIntervalDS
+			sqlType = sqltIntervalDS
+		case sqltIntervalYM:
+			itype = TypeIntervalYM
+			sqlType = sqltIntervalYM
+		}
+		sizeBytes = 0
+		interval := makeIntervalInstance(stmt.ses, itype)
+		buffer = interval
+		bufptr = interval.ptrintvl
+
+	case sqltUnsigned8 /* aka RAW */:
+		sizeBytes = column.sizeBytes
+
+		raw := MakeRawWithSize(int(sizeBytes))
+
+		buffer = raw
+		bufptr = unsafe.Pointer(raw.data)
+
+		sqlType = sqltRaw
 
 	default:
 		// do nothing for now
 	}
 
 	var pdefnptr *C.OCIDefine
-	var pind C.sb2
+	var pind int16
 
 	if sqlType != 0 {
 		fmt.Println("defining " + column.name)

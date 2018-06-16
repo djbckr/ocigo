@@ -87,7 +87,7 @@ func (sess *Session) Prepare(sql string) (*Statement, error) {
 				C.OCI_DEFAULT), rslt.err)
 
 		if vErr == nil {
-			stype, vErr := ociAttrGetUB2(
+			stype, err := ociAttrGetUB2(
 				unsafe.Pointer(rslt.stm),
 				htypeStatement,
 				attrStmtType,
@@ -95,7 +95,7 @@ func (sess *Session) Prepare(sql string) (*Statement, error) {
 
 			rslt.stmtype = StmtType(stype)
 
-			return rslt, processError(vErr)
+			return rslt, processError(err)
 		}
 		return nil, processError(vErr)
 	}

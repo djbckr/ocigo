@@ -63,7 +63,7 @@ create table foo (
 )`)
 
 	execSql(ses, t, "alter session set nls_timestamp_format='YYYY-MM-DD HH24:MI:SS.FF4'")
-	execSql(ses, t, "alter session set nls_date_format='YYYY-MM-DD HH24:MI:SS'")
+	execSql(ses, t, "alter session set NLS_DATE_FORMAT='YYYY-MM-DD HH24:MI:SS'")
 	execSql(ses, t, "alter session set nls_timestamp_tz_format='YYYY-MM-DD HH24:MI:SSXFF TZR'")
 
 	execSql(ses, t, `insert into foo values (
@@ -85,7 +85,7 @@ create table foo (
 	fmt.Println("Running query...")
 	// querySql(ses, t, `select f.*, 'literal' as "SomethingLiteral", cursor(select 1 as "Foo" from dual union all select 2 from dual ) as "Nested Cursor" from foo f`)
 	// querySql(ses, t, `select "CharC", "CharB", "VarChar2C", "VarChar2B", "Number" from foo`)
-	querySql(ses, t, `select "BinaryDbl", "BinaryFlt", "CharC", "CharB", "Date", "Float", "IntervalDS", "IntervalYM", "NChar", "Number", "NVarchar2", "Raw", "TimeStamp", /* "TimeStampTZ", */ "TimeStampLTZ", "VarChar2C", "VarChar2B", /* "AnyData", */ "Blob", "Clob" /*, "Long", "NClob", "RowID", "URowID", "XmlType" */ from foo`)
+	querySql(ses, t, `select "BinaryDbl", "BinaryFlt", "CharC", "CharB", "Date", "Float", "IntervalDS", "IntervalYM", "NChar", "Number", "NVarchar2", "Raw", "TimeStamp", "TimeStampTZ", "TimeStampLTZ", "VarChar2C", "VarChar2B", /* "AnyData", */ "Blob", "Clob" /*, "Long", "NClob", "RowID", "URowID", "XmlType" */ from foo`)
 
 	n1, err := oci.NumberFromInt(2)
 	checkerr(t, err)
