@@ -731,3 +731,14 @@ func ociAttrSet(handle unsafe.Pointer, htype ociHandleType, attrPtr unsafe.Point
 	// fmt.Println("ociAttrSet: ", htype, attrType)
 	return checkError(C.OCIAttrSet(handle, (C.ub4)(htype), attrPtr, attrSize, (C.ub4)(attrType), errHandle), errHandle)
 }
+
+func ociAttrSetString(handle unsafe.Pointer, htype ociHandleType, strAttr string, attrType ociAttrType, errHandle *C.OCIError) *OciError {
+	b := []byte(strAttr)
+	return checkError(C.OCIAttrSet(handle, (C.ub4)(htype), unsafe.Pointer(&b[0]), C.ub4(len(b)), (C.ub4)(attrType), errHandle), errHandle)
+}
+
+func maybePanic(err *OciError) {
+	if err.err != nil {
+		panic(err.err)
+	}
+}

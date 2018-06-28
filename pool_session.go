@@ -233,23 +233,26 @@ func (sess *Session) Release() error {
 }
 
 func (sess *Session) SetClientIdentifier(value string) {
-	//OCI_ATTR_CLIENT_IDENTIFIER up to 64 bytes
+
+	maybePanic(ociAttrSetString(unsafe.Pointer(sess.ses), htypeSession, value, attrClientIdentifier, sess.err))
 
 }
 
 func (sess *Session) SetCurrentSchema(value string) {
-	//OCI_ATTR_CURRENT_SCHEMA
-
+	maybePanic(ociAttrSetString(unsafe.Pointer(sess.ses), htypeSession, value, attrCurrentSchema, sess.err))
 }
 
 func (sess *Session) GetCurrentSchema() string {
-	//OCI_ATTR_CURRENT_SCHEMA
-	return ""
+
+	result, err := ociAttrGetString(sess.ses, htypeSession, attrCurrentSchema, sess.err)
+	maybePanic(err)
+
+	return result
 }
 
 func (sess *Session) SetModule(value string) {
 	//OCI_ATTR_MODULE
-
+  maybePanic(ociAttrSetString(unsafe.Pointer(sess.ses), htypeSession, value, attrses))
 }
 
 func (sess *Session) SetAction(value string) {
